@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="vi" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Quản Lý Sản Xuất & Thành Viên - JIALIN MES</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            navy: '#0A192F',
+                            steel: '#1E3A8A',
+                            accent: '#0284C7',
+                            light: '#F8FAFC',
+                            cardLight: '#FFFFFF',
+                            cardDark: '#1E293B'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome & Chart.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .blueprint-bg {
+            background-color: #0d2040;
+            background-image: 
+                radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 0),
+                linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 0),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 0);
+            background-size: 20px 20px, 20px 20px, 20px 20px;
+        }
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
+
+    <!-- INPUT FILE EXCEL CHUNG (HIDDEN) -->
+    <input type="file" id="global-csv-file-input" accept=".csv, .txt" class="hidden" onchange="processImportCSV(event)">
+
+    <!-- LOGIN SCREEN MODAL -->
+    <div id="login-modal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-8 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-6">
+            <div class="text-center space-y-2">
+                <div class="inline-flex bg-blue-600 text-white p-3 rounded-xl font-bold text-xl mb-1">JIALIN MES</div>
+                <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Đăng Nhập Thành Viên</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Vui lòng nhập tài khoản và mật khẩu để truy cập hệ thống</p>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4 text-sm">
+                <div id="login-error-msg" class="hidden p-3 bg-rose-100 border border-rose-300 text-rose-700 text-xs rounded-lg font-medium"></div>
+                <div>
+                    <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Tên Đăng Nhập</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"><i class="fa-solid fa-user"></i></span>
+                        <input type="text" id="login-username" required placeholder="Tên đăng nhập" class="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 font-medium">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Mật Khẩu</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"><i class="fa-solid fa-lock"></i></span>
+                        <input type="password" id="login-password" required placeholder="Mật khẩu" class="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 font-medium">
+                    </div>
+                </div>
+                <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg transition duration-150 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- HEADER / NAVBAR -->
+    <header class="bg-brand-navy text-white sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 text-white p-2 rounded-lg font-bold">JIALIN</div>
+                <div>
+                    <h1 class="font-bold text-lg leading-none">CÔNG TY TNHH CƠ KHÍ MAY JIALIN</h1>
+                    <p class="text-xs text-blue-300">Hệ Thống Điều Hành & Quản Lý Sản Xuất (MES / ERP)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <button id="sim-toggle-btn" onclick="toggleSimulation()" class="px-3 py-1.5 text-xs font-semibold rounded-full bg-slate-700 hover:bg-slate-600 text-slate-200 transition flex items-center gap-2">
+                    <span id="sim-dot" class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
+                    <span id="sim-text">Mô phỏng: TẮT</span>
+                </button>
+
+                <button onclick="syncCloud(event)" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span>Đồng bộ Cloud</span>
+                </button>
+
+                <button onclick="toggleTheme()" class="p-2 rounded-lg bg-slate-800 text-amber-400 hover:bg-slate-700 transition">
+                    <i class="fa-solid fa-sun dark:hidden"></i>
+                    <i class="fa-solid fa-moon hidden dark:block"></i>
+                </button>
+
+                <div onclick="openProfileEditModal()" class="flex items-center space-x-2 pl-3 border-l border-slate-700 cursor-pointer hover:opacity-80 transition group" title="Thông tin cá nhân">
+                    <div class="text-right hidden sm:block">
+                        <p id="current-user-name" class="text-sm font-semibold group-hover:text-blue-300 transition">Phạm Thị Ngọc Liên</p>
+                        <p id="current-user-role" class="text-xs text-blue-300">Quản Lý Sản Xuất</p>
+                    </div>
+                    <button class="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center font-bold text-sm text-white group-hover:bg-blue-400 transition">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </button>
+                </div>
+
+                <button onclick="handleLogout()" class="p-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white rounded-lg transition text-xs font-semibold flex items-center gap-1" title="Đăng xuất">
+                    <i class="fa-solid fa-power-off"></i>
+                    <span class="hidden md:inline">Thoát</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="bg-slate-800 text-slate-300 shadow">
+        <div class="max-w-7xl mx-auto px-4 flex overflow-x-auto space-x-1 py-2 text-sm font-medium">
+            <button onclick="switchTab('dashboard')" class="tab-btn active px-3 py-2 rounded-md hover:bg-slate-700 hover:text-white flex items-center gap-2 transition whitespace-nowrap" data-tab="dashboard">
+                <i class="fa-solid fa-chart-line text-blue-400"></i> Dashboard KPI
+            </button>
+            <button id="nav-btn-users" onclick="switchTab('users')" class="tab-btn px-3 py-2 rounded-md hover:bg-slate-700 hover:text-white flex items-center gap-2 transition whitespace-nowrap" data-tab="users">
+                <i class="fa-solid fa-users-gear text-indigo-400"></i> Quản Lý Tài Khoản Thành Viên
+            </button>
+            <button onclick="switchTab('cad')" class="tab-btn px-3 py-2 rounded-md hover:bg-slate-700 hover:text-white flex items-center gap-2 transition whitespace-nowrap" data-tab="cad">
+                <i class="fa-solid fa-drafting-compass text-teal-400"></i> Bản Vẽ CAD & Spec (Hỗ Trợ PDF)
+            </button>
+            <button onclick="switchTab('bom')" class="tab-btn px-3 py-2 rounded-md hover:bg-slate-700 hover:text-white flex items-center gap-2 transition whitespace-nowrap" data-tab="bom">
+                <i class="fa-solid fa-sitemap text-amber-400"></i> Định Mức BOM
+            </button>
+            <button onclick="switchTab('production')" class="tab-btn px-3 py-2 rounded-md hover:bg-slate-700 hover:text-white flex items-center gap-2 transition whitespace-nowrap" data-tab="production">
+                <i class="fa-solid fa-industry text-purple-400"></i> Kế Hoạch Sản Xuất
+            </button>
+            <button onclick="switchTab('mrp')" class="tab-btn px-3 py-2 rounded-md hover:bg-slate-700 hover:text-white flex items-center gap-2 transition whitespace-nowrap" data-tab="mrp">
+                <i class="fa-solid fa-boxes-stacked text-emerald-400"></i> Kế Hoạch Vật Tư (MRP)
+            </button>
+            <button onclick="switchTab('qc')" class="tab-btn px-3 py-2 rounded-md hover:bg-slate-700 hover:text-white flex items-center gap-2 transition whitespace-nowrap" data-tab="qc">
+                <i class="fa-solid fa-clipboard-check text-rose-400"></i> Quản Lý QC
+            </button>
+            <button onclick="switchTab('machines')" class="tab-btn px-3 py-2 rounded-md hover:bg-slate-700 hover:text-white flex items-center gap-2 transition whitespace-nowrap" data-tab="machines">
+                <i class="fa-solid fa-microchip text-orange-400"></i> Quản Lý Máy Móc
+            </button>
+            <button onclick="switchTab('workers')" class="tab-btn px-3 py-2 rounded-md hover:bg-slate-700 hover:text-white flex items-center gap-2 transition whitespace-nowrap" data-tab="workers">
+                <i class="fa-solid fa-user-group text-cyan-400"></i> Phân Công Công Nhân
+            </button>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+
+        <!-- 1. DASHBOARD TAB -->
+        <div id="tab-dashboard" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Tổng Lệnh Sản Xuất</p>
+                        <h3 id="stat-total-lsx" class="text-2xl font-bold mt-1">0</h3>
+                        <p class="text-xs text-blue-500 mt-1"><i class="fa-solid fa-spinner fa-spin"></i> Đang chạy: <span id="stat-running-lsx">0</span></p>
+                    </div>
+                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 text-blue-600 rounded-lg flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-list-check"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Sản Lượng Hoàn Thành</p>
+                        <h3 id="stat-total-output" class="text-2xl font-bold mt-1">0 / 0</h3>
+                        <p id="stat-progress-pct" class="text-xs text-emerald-500 mt-1 font-semibold">0% tiến độ tổng</p>
+                    </div>
+                    <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 rounded-lg flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-gears"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Tỷ Lệ Đạt Chất Lượng (FPY)</p>
+                        <h3 id="stat-fpy-rate" class="text-2xl font-bold mt-1">98.5%</h3>
+                        <p class="text-xs text-rose-500 mt-1"><i class="fa-solid fa-triangle-exclamation"></i> Lỗi PQC: <span id="stat-qc-defects">0</span> sp</p>
+                    </div>
+                    <div class="w-12 h-12 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-lg flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Cảnh Báo Vật Tư Kho (MRP)</p>
+                        <h3 id="stat-mrp-alerts" class="text-2xl font-bold mt-1 text-amber-500">0</h3>
+                        <p class="text-xs text-slate-400 mt-1">Mặt hàng dưới mức an toàn</p>
+                    </div>
+                    <div class="w-12 h-12 bg-amber-100 dark:bg-amber-900/40 text-amber-600 rounded-lg flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                    <h3 class="font-bold text-base mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-column text-blue-500"></i> Tiến Độ Sản Xuất Theo Lệnh (LSX)
+                    </h3>
+                    <div class="h-64"><canvas id="chart-production"></canvas></div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                    <h3 class="font-bold text-base mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-emerald-500"></i> Tỷ Lệ Đánh Giá Chất Lượng (QC Breakdown)
+                    </h3>
+                    <div class="h-64 flex justify-center"><canvas id="chart-qc"></canvas></div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-base flex items-center gap-2">
+                        <i class="fa-solid fa-microchip text-rose-500"></i> Trạng Thái Máy Móc Nhà Xưởng
+                    </h3>
+                    <button onclick="resetSystemData()" class="text-xs text-slate-400 hover:text-rose-500 transition">
+                        <i class="fa-solid fa-rotate-left"></i> Khôi phục dữ liệu gốc
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4" id="machine-list-container"></div>
+            </div>
+        </div>
+
+        <!-- 2. USER ADMIN TAB -->
+        <div id="tab-users" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-lg font-bold flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                        <i class="fa-solid fa-user-shield"></i> Quản Lý Tài Khoản Thành Viên
+                    </h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Thêm mới không giới hạn tài khoản, cập nhật/sửa thông tin, đổi mật khẩu và nhập file dữ liệu</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="triggerImportCSV('users')" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded text-xs font-medium transition flex items-center gap-1.5 shadow"><i class="fa-solid fa-file-import"></i> Nhập File Excel/CSV</button>
+                    <button onclick="exportTableToCSV('users')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs font-medium transition flex items-center gap-1.5"><i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Danh Sách CSV</button>
+                    <button onclick="openUserEditModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium transition flex items-center gap-1.5 shadow"><i class="fa-solid fa-user-plus"></i> Thêm Tài Khoản Mới</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase">Tổng Thành Viên</p>
+                        <h3 id="stat-user-total" class="text-2xl font-bold mt-1 text-blue-600">0</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 text-blue-600 rounded-lg flex items-center justify-center text-lg"><i class="fa-solid fa-users"></i></div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase">Đang Hoạt Động</p>
+                        <h3 id="stat-user-active" class="text-2xl font-bold mt-1 text-emerald-600">0</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 rounded-lg flex items-center justify-center text-lg"><i class="fa-solid fa-user-check"></i></div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase">Đã Bị Khóa</p>
+                        <h3 id="stat-user-locked" class="text-2xl font-bold mt-1 text-rose-600">0</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-lg flex items-center justify-center text-lg"><i class="fa-solid fa-user-lock"></i></div>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="px-4 py-3">Mã NV</th>
+                                <th class="px-4 py-3">Họ và Tên</th>
+                                <th class="px-4 py-3">Tên Đăng Nhập</th>
+                                <th class="px-4 py-3">Mật Khẩu</th>
+                                <th class="px-4 py-3">Vai Trò Phân Quyền</th>
+                                <th class="px-4 py-3">Trạng Thái</th>
+                                <th class="px-4 py-3 text-center">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-table-body" class="divide-y divide-slate-200 dark:divide-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. CAD TAB (NÂNG CẤP XEM PDF & HÌNH ẢNH) -->
+        <div id="tab-cad" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-lg font-bold">Trình Xem Bản Vẽ Kỹ Thuật CAD 2D, PDF & Spec</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Hỗ trợ tải lên và xem trực tiếp bản vẽ dưới dạng File PDF, Hình ảnh (PNG, JPG) hoặc SVG Vector</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="exportTableToCSV('cad')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Excel</button>
+                    <button onclick="openCadModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium transition shadow"><i class="fa-solid fa-file-circle-plus"></i> Thêm Bản Vẽ Mới (PDF/Ảnh)</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 space-y-3">
+                    <h3 class="font-bold text-sm uppercase text-slate-500 border-b pb-2">Danh Sách Bản Vẽ CAD / PDF</h3>
+                    <div class="space-y-2 max-h-[500px] overflow-y-auto pr-1" id="cad-item-list"></div>
+                </div>
+
+                <div class="lg:col-span-2 bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 flex flex-col">
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-700">
+                        <div>
+                            <h3 id="cad-active-title" class="font-bold text-lg text-blue-600 dark:text-blue-400">Chưa chọn bản vẽ</h3>
+                            <p id="cad-active-sub" class="text-xs text-slate-400">Mã thiết kế: --- | Phiên bản: ---</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="zoomCad(1.2)" class="p-1.5 bg-slate-200 dark:bg-slate-700 rounded text-xs"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+                            <button onclick="zoomCad(0.8)" class="p-1.5 bg-slate-200 dark:bg-slate-700 rounded text-xs"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+                            <button onclick="resetCadZoom()" class="p-1.5 bg-slate-200 dark:bg-slate-700 rounded text-xs"><i class="fa-solid fa-arrows-rotate"></i></button>
+                            <button onclick="printCadDrawing()" class="p-1.5 bg-blue-600 text-white rounded text-xs flex items-center gap-1"><i class="fa-solid fa-print"></i> In Bản Vẽ</button>
+                        </div>
+                    </div>
+
+                    <div id="printable-area" class="blueprint-bg rounded-lg my-4 p-2 min-h-[450px] flex items-center justify-center relative overflow-hidden border border-blue-900 shadow-inner">
+                        <div id="svg-viewport" class="w-full h-full min-h-[420px] flex items-center justify-center transition-transform duration-200 transform origin-center"></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2 border-t border-slate-200 dark:border-slate-700">
+                        <div>
+                            <span class="font-bold text-slate-500 block mb-1">Thông Số Kỹ Thuật (Tech Spec):</span>
+                            <p id="cad-spec-text" class="text-slate-600 dark:text-slate-300 leading-relaxed"></p>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-500 block mb-1">Lịch Sử ECN Logs:</span>
+                            <ul id="cad-ecn-list" class="list-disc list-inside text-slate-600 dark:text-slate-300 space-y-1"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. BOM TAB -->
+        <div id="tab-bom" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-lg font-bold">Cấu Trúc Định Mức Vật Tư Sản Phẩm (BOM Multi-level)</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Quản lý linh kiện, định mức, tỷ lệ hao hụt và tính tổng chi phí chế tạo</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="triggerImportCSV('bom')" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded text-xs font-medium transition flex items-center gap-1.5 shadow"><i class="fa-solid fa-file-import"></i> Nhập File Excel/CSV</button>
+                    <button onclick="exportTableToCSV('bom')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Excel</button>
+                    <button onclick="openBomModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-plus"></i> Thêm Linh Kiện BOM</button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 flex items-center gap-4">
+                <label class="font-bold text-sm whitespace-nowrap"><i class="fa-solid fa-cube text-amber-500"></i> Chọn Dòng Máy / Sản Phẩm:</label>
+                <select id="bom-product-select" onchange="renderBomTable()" class="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm rounded-lg p-2 w-full max-w-md focus:ring-blue-500"></select>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="px-4 py-3">Mã Linh Kiện</th>
+                                <th class="px-4 py-3">Tên Vật Tư</th>
+                                <th class="px-4 py-3">Số Lượng ĐM</th>
+                                <th class="px-4 py-3">Đơn Vị</th>
+                                <th class="px-4 py-3">Hao Hụt</th>
+                                <th class="px-4 py-3">Đơn Giá Dự Kiến</th>
+                                <th class="px-4 py-3">Thành Tiền (VND)</th>
+                                <th class="px-4 py-3 text-center">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bom-table-body" class="divide-y divide-slate-200 dark:divide-slate-700"></tbody>
+                        <tfoot class="bg-slate-100 dark:bg-slate-800 font-bold border-t border-slate-300 dark:border-slate-600">
+                            <tr>
+                                <td colspan="6" class="px-4 py-3 text-right">TỔNG CHI PHÍ NGUYÊN VẬT LIỆU (TÍNH THEO BOM):</td>
+                                <td id="bom-total-cost" class="px-4 py-3 text-blue-600 dark:text-blue-400 text-base">0 VNĐ</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. PRODUCTION PLAN TAB -->
+        <div id="tab-production" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-lg font-bold">Quản Lý Kế Hoạch & Tiến Độ Sản Xuất (LSX)</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Điều phối kế hoạch, phân bổ chuyền, thời gian giao hàng và % tiến độ real-time</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="triggerImportCSV('production')" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded text-xs font-medium transition flex items-center gap-1.5 shadow"><i class="fa-solid fa-file-import"></i> Nhập File Excel/CSV</button>
+                    <button onclick="exportTableToCSV('production')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Excel</button>
+                    <button onclick="openLsxModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-plus"></i> Lập Lệnh Sản Xuất Mới</button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="px-4 py-3">Mã LSX</th>
+                                <th class="px-4 py-3">Sản Phẩm</th>
+                                <th class="px-4 py-3">Dây Chuyền</th>
+                                <th class="px-4 py-3">Kế Hoạch / Thực Tế</th>
+                                <th class="px-4 py-3">Ngày Lên Lệnh SX</th>
+                                <th class="px-4 py-3">Hạn Hoàn Thành SX</th>
+                                <th class="px-4 py-3">Công Đoạn</th>
+                                <th class="px-4 py-3">Tiến Độ %</th>
+                                <th class="px-4 py-3">Trạng Thái</th>
+                                <th class="px-4 py-3 text-center">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lsx-table-body" class="divide-y divide-slate-200 dark:divide-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. MRP TAB -->
+        <div id="tab-mrp" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-lg font-bold">Kế Hoạch Nhu Cầu Vật Tư (MRP)</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Tính toán nhu cầu vật tư thực tế và quản lý thời gian lập KH, cấp phát kho</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="runMrpCalculation()" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded text-xs font-medium transition shadow"><i class="fa-solid fa-calculator"></i> Tính Nhu Cầu MRP Động</button>
+                    <button onclick="triggerImportCSV('mrp')" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded text-xs font-medium transition flex items-center gap-1.5 shadow"><i class="fa-solid fa-file-import"></i> Nhập File Excel/CSV</button>
+                    <button onclick="exportTableToCSV('mrp')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Excel</button>
+                    <button onclick="openMaterialModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-plus"></i> Thêm Vật Tư Kho</button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="px-4 py-3">Mã Vật Tư</th>
+                                <th class="px-4 py-3">Tên Vật Tư</th>
+                                <th class="px-4 py-3">Tồn Hiện Tại</th>
+                                <th class="px-4 py-3">Nhu Cầu LSX</th>
+                                <th class="px-4 py-3">Tồn An Toàn</th>
+                                <th class="px-4 py-3">Đơn Vị</th>
+                                <th class="px-4 py-3">Ngày Lên KH VT</th>
+                                <th class="px-4 py-3">Ngày Cấp VT</th>
+                                <th class="px-4 py-3">Cảnh Báo</th>
+                                <th class="px-4 py-3 text-center">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mrp-table-body" class="divide-y divide-slate-200 dark:divide-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. QC TAB -->
+        <div id="tab-qc" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-lg font-bold">Quản Lý Kiểm Soát Chất Lượng (QC 3 Công Đoạn)</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Nhật ký kiểm soát chất lượng IQC, PQC, OQC</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="triggerImportCSV('qc')" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded text-xs font-medium transition flex items-center gap-1.5 shadow"><i class="fa-solid fa-file-import"></i> Nhập File Excel/CSV</button>
+                    <button onclick="exportTableToCSV('qc')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Excel</button>
+                    <button onclick="openQcModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-plus"></i> Tạo Phiếu QC</button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="px-4 py-3">Mã Phiếu QC</th>
+                                <th class="px-4 py-3">Công Đoạn QC</th>
+                                <th class="px-4 py-3">Mẫu / LSX Kiểm</th>
+                                <th class="px-4 py-3">Số Lượng Kiểm</th>
+                                <th class="px-4 py-3">Đạt / Lỗi</th>
+                                <th class="px-4 py-3">Người Kiểm</th>
+                                <th class="px-4 py-3">Kết Luận</th>
+                                <th class="px-4 py-3 text-center">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="qc-table-body" class="divide-y divide-slate-200 dark:divide-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. MACHINES TAB -->
+        <div id="tab-machines" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-lg font-bold">Quản Lý Máy Móc & Thiết Bị Nhà Xưởng</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Theo dõi thông số kỹ thuật, tải vận hành, nhiệt độ và lịch bảo trì</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="triggerImportCSV('machines')" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded text-xs font-medium transition flex items-center gap-1.5 shadow"><i class="fa-solid fa-file-import"></i> Nhập File Excel/CSV</button>
+                    <button onclick="exportTableToCSV('machines')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Excel</button>
+                    <button onclick="openMachineModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-plus"></i> Thêm Thiết Bị Mới</button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="px-4 py-3">Mã Máy</th>
+                                <th class="px-4 py-3">Tên Máy Móc / Thiết Bị</th>
+                                <th class="px-4 py-3">Tải Vận Hành</th>
+                                <th class="px-4 py-3">Nhiệt Độ</th>
+                                <th class="px-4 py-3">Trạng Thái</th>
+                                <th class="px-4 py-3 text-center">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="machines-table-body" class="divide-y divide-slate-200 dark:divide-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 9. WORKERS TAB -->
+        <div id="tab-workers" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-lg font-bold">Phân Công & Điều Độ Công Nhân Chuyền</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Phân công nhân sự theo ca làm việc, dây chuyền và lệnh sản xuất</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="triggerImportCSV('workers')" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded text-xs font-medium transition flex items-center gap-1.5 shadow"><i class="fa-solid fa-file-import"></i> Nhập File Excel/CSV</button>
+                    <button onclick="exportTableToCSV('workers')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Excel</button>
+                    <button onclick="openWorkerModal()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-medium transition"><i class="fa-solid fa-user-plus"></i> Phân Công Mới</button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="px-4 py-3">Mã CN</th>
+                                <th class="px-4 py-3">Tên Công Nhân</th>
+                                <th class="px-4 py-3">Ca Làm Việc</th>
+                                <th class="px-4 py-3">Phân Chuyền</th>
+                                <th class="px-4 py-3">Mã LSX Phân Công</th>
+                                <th class="px-4 py-3 text-center">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="workers-table-body" class="divide-y divide-slate-200 dark:divide-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-800 text-slate-400 text-xs py-4 border-t border-slate-700 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <p>© 2026 Công ty TNHH Cơ Khí May Jialin. All Rights Reserved.</p>
+            <p>Hệ thống Điều Hành Sản Xuất MES v3.5 - Dynamic Reactive LocalStorage Engine</p>
+        </div>
+    </footer>
+
+    <!-- MODALS -->
+
+    <!-- PROFILE HEADER EDIT MODAL -->
+    <div id="modal-profile" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-base flex items-center gap-2"><i class="fa-solid fa-user-pen text-blue-500"></i> Đổi Thông Tin Cá Nhân</h3>
+                <button onclick="closeProfileEditModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-profile" onsubmit="saveProfileHeaderForm(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold mb-1">Họ và Tên (*)</label>
+                    <input type="text" id="profile-form-fullname" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium">
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Chức Danh / Vai Trò (*)</label>
+                    <input type="text" id="profile-form-role" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium">
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onclick="closeProfileEditModal()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded font-medium">Lưu Cập Nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CONFIRM DELETE MODAL -->
+    <div id="modal-confirm-delete" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700">
+            <h3 class="font-bold text-lg text-rose-600 mb-2"><i class="fa-solid fa-triangle-exclamation"></i> Xác Nhận Xóa Dữ Liệu</h3>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mb-5">Bạn có chắc chắn muốn xóa bản ghi này? Hành động này không thể hoàn tác.</p>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 rounded text-xs font-semibold">Hủy Bỏ</button>
+                <button id="btn-confirm-delete-action" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-semibold">Đồng Ý Xóa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- USER ADMIN MODAL -->
+    <div id="modal-user" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 id="user-modal-title" class="font-bold text-base flex items-center gap-2"><i class="fa-solid fa-user-gear text-blue-500"></i> Quản Lý Tài Khoản Thành Viên</h3>
+                <button onclick="closeUserEditModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-user" onsubmit="saveUserForm(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="user-form-id">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Tên Đăng Nhập (*)</label>
+                        <input type="text" id="user-form-username" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-mono font-semibold">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Họ và Tên Thành Viên (*)</label>
+                        <input type="text" id="user-form-fullname" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Mật Khẩu (*)</label>
+                    <div class="relative">
+                        <input type="text" id="user-form-password" required placeholder="Nhập mật khẩu" class="w-full p-2 pr-8 bg-slate-50 dark:bg-slate-900 border rounded font-mono font-bold text-blue-600">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Loại Phân Quyền</label>
+                        <select id="user-form-role" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium">
+                            <option value="Thành Viên">Thành Viên (Chỉ xem / thao tác cơ bản)</option>
+                            <option value="Quản Lý Sản Xuất">Quản Lý Sản Xuất (Admin)</option>
+                            <option value="Kỹ Sư CAD/BOM">Kỹ Sư CAD/BOM</option>
+                            <option value="Quản Lý Kho (MRP)">Quản Lý Kho (MRP)</option>
+                            <option value="QC Inspector">QC Inspector</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Trạng Thái Truy Cập</label>
+                        <select id="user-form-status" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium">
+                            <option value="Hoạt động">Hoạt động (Được đăng nhập)</option>
+                            <option value="Đã khóa">Đã khóa (Bị chặn đăng nhập)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onclick="closeUserEditModal()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded font-medium">Lưu Tài Khoản</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CAD MODAL (NÂNG CẤP CHỌN FILE PDF / HÌNH ẢNH) -->
+    <div id="modal-cad" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-base flex items-center gap-2"><i class="fa-solid fa-file-pdf text-rose-500"></i> Thêm / Sửa Bản Vẽ CAD & PDF</h3>
+                <button onclick="closeCadModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-cad" onsubmit="saveCadForm(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="cad-form-id">
+                <div>
+                    <label class="block font-semibold mb-1">Tên Dòng Máy / Bản Vẽ (*)</label>
+                    <input type="text" id="cad-form-title" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Mã Sản Phẩm (*)</label>
+                        <input type="text" id="cad-form-code" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Phiên Bản (Rev)</label>
+                        <input type="text" id="cad-form-rev" required placeholder="v1.0" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                </div>
+
+                <!-- TẢI TẬP TIN PDF / HÌNH ẢNH -->
+                <div class="p-3 bg-blue-50 dark:bg-slate-900/50 border border-blue-200 dark:border-blue-800 rounded-lg space-y-1">
+                    <label class="block font-bold text-blue-700 dark:text-blue-300">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Tải Lên Tập Tin Bản Vẽ (PDF, PNG, JPG, SVG)
+                    </label>
+                    <input type="file" id="cad-form-file" accept=".pdf, .png, .jpg, .jpeg, .svg" class="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500">
+                    <p class="text-[10px] text-slate-400">Chọn file PDF hoặc ảnh từ máy tính của bạn để hiển thị xem trực tiếp.</p>
+                </div>
+
+                <div>
+                    <label class="block font-semibold mb-1">Thông Số Kỹ Thuật (Tech Spec)</label>
+                    <textarea id="cad-form-spec" rows="2" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded"></textarea>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onclick="closeCadModal()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded font-medium">Lưu Bản Vẽ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- BOM MODAL -->
+    <div id="modal-bom" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-base">Cấu Hình Linh Kiện BOM</h3>
+                <button onclick="closeBomModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-bom" onsubmit="saveBomForm(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="bom-form-id">
+                <div>
+                    <label class="block font-semibold mb-1">Dòng Máy Áp Dụng (*)</label>
+                    <select id="bom-form-product" onchange="toggleNewProductInput(this.value, 'bom')" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium"></select>
+                </div>
+                <div id="bom-new-product-container" class="hidden">
+                    <label class="block font-semibold mb-1 text-blue-600 dark:text-blue-400"><i class="fa-solid fa-plus"></i> Nhập Mã / Tên Dòng Máy Mới (*)</label>
+                    <input type="text" id="bom-form-new-product" placeholder="Ví dụ: HANGER3, M-900..." class="w-full p-2 bg-blue-50 dark:bg-slate-900 border border-blue-400 rounded">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Mã Linh Kiện (*)</label>
+                        <input type="text" id="bom-form-code" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Tên Vật Tư / Linh Kiện (*)</label>
+                        <input type="text" id="bom-form-name" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Số Lượng ĐM</label>
+                        <input type="number" step="0.01" id="bom-form-qty" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Đơn Vị Tính</label>
+                        <input type="text" id="bom-form-unit" required placeholder="Bộ, Cái, Mét..." class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Hao Hụt (%)</label>
+                        <input type="number" step="0.1" id="bom-form-scrap" value="2.0" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Đơn Giá Dự Kiến (VNĐ)</label>
+                    <input type="number" id="bom-form-price" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onclick="closeBomModal()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded font-medium">Lưu Định Mức</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- LSX MODAL -->
+    <div id="modal-lsx" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-base">Lệnh Sản Xuất</h3>
+                <button onclick="closeLsxModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-lsx" onsubmit="saveLsxForm(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="lsx-form-id">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Mã LSX (*)</label>
+                        <input type="text" id="lsx-form-code" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Sản Phẩm (*)</label>
+                        <select id="lsx-form-product" onchange="toggleNewProductInput(this.value, 'lsx')" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium"></select>
+                    </div>
+                </div>
+                <div id="lsx-new-product-container" class="hidden">
+                    <label class="block font-semibold mb-1 text-blue-600 dark:text-blue-400"><i class="fa-solid fa-plus"></i> Nhập Tên / Mã Sản Phẩm Mới (*)</label>
+                    <input type="text" id="lsx-form-new-product" placeholder="Ví dụ: HANGER3, M-900..." class="w-full p-2 bg-blue-50 dark:bg-slate-900 border border-blue-400 rounded">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1 text-blue-600 dark:text-blue-400"><i class="fa-regular fa-calendar"></i> Ngày Lên Lệnh SX (*)</label>
+                        <input type="date" id="lsx-form-start-date" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1 text-rose-600 dark:text-rose-400"><i class="fa-regular fa-calendar-check"></i> Hạn Hoàn Thành SX (*)</label>
+                        <input type="date" id="lsx-form-due-date" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Số Lượng KH</label>
+                        <input type="number" id="lsx-form-qty" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Đã Sản Xuất</label>
+                        <input type="number" id="lsx-form-actual" value="0" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Phân Chuyền</label>
+                        <select id="lsx-form-line" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                            <option value="Chuyền 1 (Laser-Cơ khí)">Chuyền 1</option>
+                            <option value="Chuyền 2 (Lắp ráp-Sơn)">Chuyền 2</option>
+                            <option value="Chuyền 3 (Chuyên Hanger)">Chuyền 3</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Công Đoạn Hiện Tại</label>
+                        <select id="lsx-form-stage" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                            <option value="Cắt laser">1. Cắt laser</option>
+                            <option value="Gia công cơ khí">2. Gia công cơ khí</option>
+                            <option value="Lắp ráp">3. Lắp ráp</option>
+                            <option value="Sơn tĩnh điện">4. Sơn tĩnh điện</option>
+                            <option value="KCS / Đóng gói">5. KCS / Đóng gói</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Trạng Thái Lệnh</label>
+                        <select id="lsx-form-status" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                            <option value="Đang chạy">Đang chạy</option>
+                            <option value="Tạm dừng">Tạm dừng</option>
+                            <option value="Hoàn thành">Hoàn thành</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onclick="closeLsxModal()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded font-medium">Lưu Lệnh Sản Xuất</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MATERIAL MODAL -->
+    <div id="modal-material" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-base">Thêm / Sửa Vật Tư Kho</h3>
+                <button onclick="closeMaterialModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-mat" onsubmit="saveMaterialForm(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="mat-form-id">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Mã Vật Tư (*)</label>
+                        <input type="text" id="mat-form-code" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Tên Vật Tư (*)</label>
+                        <input type="text" id="mat-form-name" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1 text-emerald-600 dark:text-emerald-400"><i class="fa-regular fa-calendar-plus"></i> Ngày Lên Kế Hoạch VT (*)</label>
+                        <input type="date" id="mat-form-plan-date" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1 text-indigo-600 dark:text-indigo-400"><i class="fa-solid fa-truck-ramp-box"></i> Ngày Cấp Vật Tư (*)</label>
+                        <input type="date" id="mat-form-issue-date" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded font-medium">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Tồn Kho Hiện Tại</label>
+                        <input type="number" step="0.01" id="mat-form-stock" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Tồn Kho An Toàn</label>
+                        <input type="number" step="0.01" id="mat-form-safety" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Đơn Vị Tính</label>
+                        <input type="text" id="mat-form-unit" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onclick="closeMaterialModal()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded font-medium">Lưu Vật Tư Kho</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- QC MODAL -->
+    <div id="modal-qc" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-base">Tạo Phiếu Kiểm Tra Chất Lượng (QC)</h3>
+                <button onclick="closeQcModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-qc" onsubmit="saveQcForm(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="qc-form-id">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Mã Phiếu QC (*)</label>
+                        <input type="text" id="qc-form-code" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Công Đoạn QC</label>
+                        <select id="qc-form-type" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                            <option value="IQC (Đầu vào)">IQC (Đầu vào)</option>
+                            <option value="PQC (Trên chuyền)">PQC (Trên chuyền)</option>
+                            <option value="OQC (Xuất hàng)">OQC (Xuất hàng)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Mã LSX / Vật Tư Mẫu</label>
+                        <input type="text" id="qc-form-ref" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Người Kiểm Tra</label>
+                        <input type="text" id="qc-form-inspector" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Số Lượng Đạt (Pass)</label>
+                        <input type="number" id="qc-form-pass" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Số Lượng Lỗi (Fail)</label>
+                        <input type="number" id="qc-form-fail" value="0" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onclick="closeQcModal()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded font-medium">Lưu Phiếu QC</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MACHINE MODAL -->
+    <div id="modal-machine" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-base">Cấu Hình Thiết Bị Nhà Xưởng</h3>
+                <button onclick="closeMachineModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-machine" onsubmit="saveMachineForm(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="machine-form-id">
+                <div>
+                    <label class="block font-semibold mb-1">Tên Máy / Thiết Bị (*)</label>
+                    <input type="text" id="machine-form-name" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Tải Vận Hành (%)</label>
+                        <input type="text" id="machine-form-load" placeholder="VD: 85%" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Nhiệt Độ (°C)</label>
+                        <input type="text" id="machine-form-temp" placeholder="VD: 42°C" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Trạng Thái Vận Hành</label>
+                        <select id="machine-form-status" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                            <option value="Đang chạy">Đang chạy</option>
+                            <option value="Sẵn sàng">Sẵn sàng</option>
+                            <option value="Bảo trì">Bảo trì</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Cảnh Báo Bất Thường</label>
+                        <select id="machine-form-alert" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                            <option value="false">Bình thường</option>
+                            <option value="true">Báo động / Sự cố</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onclick="closeMachineModal()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded font-medium">Lưu Thiết Bị</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- WORKER MODAL -->
+    <div id="modal-worker" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-base">Phân Công Công Nhân Chuyền</h3>
+                <button onclick="closeWorkerModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-worker" onsubmit="saveWorkerForm(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="worker-form-id">
+                <div>
+                    <label class="block font-semibold mb-1">Tên Công Nhân (*)</label>
+                    <input type="text" id="worker-form-name" required class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Ca Làm Việc</label>
+                        <select id="worker-form-shift" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                            <option value="Ca Sáng (07:30 - 16:30)">Ca Sáng</option>
+                            <option value="Ca Chiều (16:30 - 00:30)">Ca Chiều</option>
+                            <option value="Ca Đêm (00:30 - 07:30)">Ca Đêm</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Phân Chuyền</label>
+                        <select id="worker-form-line" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                            <option value="Chuyền 1 (Laser-Cơ khí)">Chuyền 1</option>
+                            <option value="Chuyền 2 (Lắp ráp-Sơn)">Chuyền 2</option>
+                            <option value="Chuyền 3 (Chuyên Hanger)">Chuyền 3</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold mb-1">Mã Lệnh Sản Xuất Phân Công</label>
+                    <input type="text" id="worker-form-lsx" placeholder="Ví dụ: LSX-2026-001" class="w-full p-2 bg-slate-50 dark:bg-slate-900 border rounded">
+                </div>
+                <div class="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onclick="closeWorkerModal()" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded font-medium">Lưu Phân Công</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT ENGINE -->
+    <script>
+        const DEFAULT_USERS_LIST = [
+            { id: "usr-1", username: "ptnl004", password: "14052004", fullname: "Phạm Thị Ngọc Liên", role: "Quản Lý Sản Xuất", status: "Hoạt động" },
+            { id: "usr-2", username: "thanhvien01", password: "123456", fullname: "Trần Văn An", role: "Thành Viên", status: "Hoạt động" },
+            { id: "usr-3", username: "lethihoa", password: "123", fullname: "Lê Thị Hoa", role: "QC Inspector", status: "Hoạt động" }
+        ];
+
+        const DEFAULT_DATA = {
+            currentUser: { fullname: "Phạm Thị Ngọc Liên", role: "Quản Lý Sản Xuất" },
+            cadDrawings: [
+                {
+                    id: "cad-1", code: "HW681", title: "Máy Khuy Nút Tự Động HW-681", rev: "v2.1",
+                    spec: "Kích thước: 1200x800x1400mm | Motor: Servo 750W | Tốc độ khâu: 2500 mũi/phút | Áp suất khí nén: 0.6 MPa",
+                    ecnLogs: ["v1.0: Khởi tạo bản vẽ ban đầu", "v2.0: Nâng cấp cụm kẹp kim loại xilanh", "v2.1: Tối ưu khung chân thép mạ kẽm"],
+                    fileType: "svg",
+                    svgContent: `<svg viewBox="0 0 400 250" class="w-full h-full text-blue-400"><rect x="50" y="40" width="300" height="150" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4"/><circle cx="120" cy="115" r="35" fill="none" stroke="#38bdf8" stroke-width="3"/><rect x="200" y="80" width="110" height="70" fill="none" stroke="#f59e0b" stroke-width="2"/><line x1="50" y1="190" x2="350" y2="190" stroke="#ef4444" stroke-width="3"/><text x="130" y="30" fill="#94a3b8" font-size="12">MẶT ĐỨNG CƠ KHÍ HW-681</text></svg>`
+                },
+                {
+                    id: "cad-2", code: "A80", title: "Bộ Gá May Tự Động A80", rev: "v1.4",
+                    spec: "Vật liệu: Nhôm định hình 40x40 | Ray trượt: Hiwin 15mm | Tải trọng tối đa: 50kg",
+                    ecnLogs: ["v1.0: Bản vẽ mẫu", "v1.4: Thay đổi ray trượt sang Hiwin"],
+                    fileType: "svg",
+                    svgContent: `<svg viewBox="0 0 400 250" class="w-full h-full text-emerald-400"><rect x="80" y="60" width="240" height="120" fill="none" stroke="currentColor" stroke-width="3"/><line x1="80" y1="120" x2="320" y2="120" stroke="#38bdf8" stroke-width="2"/><circle cx="200" cy="120" r="20" fill="none" stroke="#eab308" stroke-width="2"/><text x="140" y="40" fill="#94a3b8" font-size="12">BẢN VẼ GÁ CƠ MÁY A80</text></svg>`
+                }
+            ],
+            bomItems: [
+                { id: "bom-1", productCode: "HW681", code: "MAT-001", name: "Thép Tấm Chế Tạo (Độ dầy 5mm)", qty: 12.5, unit: "Kg", scrap: 2.0, price: 25000 },
+                { id: "bom-2", productCode: "HW681", code: "MAT-002", name: "Sắt Hộp 40x40mm Mạ Kẽm", qty: 6, unit: "Mét", scrap: 1.5, price: 85000 },
+                { id: "bom-3", productCode: "HW681", code: "ELEC-01", name: "Motor Servo 750W + Driver Yaskawa", qty: 1, unit: "Bộ", scrap: 0, price: 4200000 },
+                { id: "bom-4", productCode: "A80", code: "MAT-003", name: "Nhôm Định Hình 40x40 Anodized", qty: 8, unit: "Mét", scrap: 1.0, price: 120000 }
+            ],
+            lsxList: [
+                { id: "lsx-1", code: "LSX-2026-001", productCode: "HW681", startDate: "2026-09-01", dueDate: "2026-09-28", planQty: 20, actualQty: 14, line: "Chuyền 1 (Laser-Cơ khí)", stage: "Lắp ráp", progress: 70, status: "Đang chạy" },
+                { id: "lsx-2", code: "LSX-2026-002", productCode: "A80", startDate: "2026-08-15", dueDate: "2026-09-10", planQty: 50, actualQty: 50, line: "Chuyền 2 (Lắp ráp-Sơn)", stage: "KCS / Đóng gói", progress: 100, status: "Hoàn thành" },
+                { id: "lsx-3", code: "LSX-2026-003", productCode: "HW681", startDate: "2026-09-20", dueDate: "2026-10-15", planQty: 10, actualQty: 2, line: "Chuyền 1 (Laser-Cơ khí)", stage: "Cắt laser", progress: 20, status: "Đang chạy" }
+            ],
+            materials: [
+                { id: "mat-1", code: "MAT-001", name: "Thép Tấm Chế Tạo (Độ dầy 5mm)", planDate: "2026-09-02", issueDate: "2026-09-05", currentStock: 180, requiredQty: 0, safetyStock: 200, unit: "Kg" },
+                { id: "mat-2", code: "MAT-002", name: "Sắt Hộp 40x40mm Mạ Kẽm", planDate: "2026-09-02", issueDate: "2026-09-06", currentStock: 45, requiredQty: 0, safetyStock: 50, unit: "Mét" },
+                { id: "mat-3", code: "ELEC-01", name: "Motor Servo 750W + Driver Yaskawa", planDate: "2026-09-10", issueDate: "2026-09-12", currentStock: 12, requiredQty: 0, safetyStock: 5, unit: "Bộ" },
+                { id: "mat-4", code: "MAT-003", name: "Nhôm Định Hình 40x40 Anodized", planDate: "2026-08-16", issueDate: "2026-08-18", currentStock: 300, requiredQty: 0, safetyStock: 100, unit: "Mét" }
+            ],
+            qcLogs: [
+                { id: "qc-1", code: "QC-IQC-089", type: "IQC (Đầu vào)", ref: "MAT-001 (Thép tấm)", inspector: "Trần Văn An", passQty: 500, failQty: 5, status: "Đạt chuẩn" },
+                { id: "qc-2", code: "QC-PQC-102", type: "PQC (Trên chuyền)", ref: "LSX-2026-001", inspector: "Lê Thị Hoa", passQty: 14, failQty: 1, status: "Lỗi nhẹ (Đã khắc phục)" }
+            ],
+            machines: [
+                { id: "mac-1", name: "Máy Cắt Laser Fiber 3000W", status: "Đang chạy", load: "85%", temp: "42°C", alert: false },
+                { id: "mac-2", name: "Máy Phay CNC 3 Trục", status: "Đang chạy", load: "92%", temp: "55°C", alert: false },
+                { id: "mac-3", name: "Chuyền Sơn Tĩnh Điện", status: "Bảo trì", load: "0%", temp: "25°C", alert: true },
+                { id: "mac-4", name: "Robot Lắp Ráp Khung", status: "Đang chạy", load: "78%", temp: "38°C", alert: false }
+            ],
+            workers: [
+                { id: "wrk-1", name: "Nguyễn Văn Hùng", shift: "Ca Sáng (07:30 - 16:30)", line: "Chuyền 1 (Laser-Cơ khí)", lsxCode: "LSX-2026-001" },
+                { id: "wrk-2", name: "Trần Thị Mai", shift: "Ca Chiều (16:30 - 00:30)", line: "Chuyền 2 (Lắp ráp-Sơn)", lsxCode: "LSX-2026-002" }
+            ]
+        };
+
+        let state = {};
+        let usersList = [];
+        let loggedInUser = null;
+        let currentImportModule = null;
+        let simInterval = null, isSimulating = false, activeCadId = null, cadZoomLevel = 1;
+        let deleteTarget = { type: null, id: null };
+        let chartProdInstance = null, chartQcInstance = null;
+
+        function initState() {
+            const savedUsers = localStorage.getItem('JIALIN_USERS_LIST');
+            if (savedUsers) {
+                try { usersList = JSON.parse(savedUsers); } catch(e) { usersList = JSON.parse(JSON.stringify(DEFAULT_USERS_LIST)); }
+            } else {
+                usersList = JSON.parse(JSON.stringify(DEFAULT_USERS_LIST));
+            }
+
+            const admin = usersList.find(u => u.username === 'ptnl004');
+            if (!admin) {
+                usersList.unshift({ id: "usr-1", username: "ptnl004", password: "14052004", fullname: "Phạm Thị Ngọc Liên", role: "Quản Lý Sản Xuất", status: "Hoạt động" });
+            }
+            saveUsersState();
+
+            const saved = localStorage.getItem('JIALIN_MES_STATE');
+            if (saved) {
+                try { state = JSON.parse(saved); } catch(e) { state = JSON.parse(JSON.stringify(DEFAULT_DATA)); }
+            } else { state = JSON.parse(JSON.stringify(DEFAULT_DATA)); }
+
+            const session = sessionStorage.getItem('JIALIN_LOGGED_USER');
+            if (session) {
+                loggedInUser = JSON.parse(session);
+                document.getElementById('login-modal').classList.add('hidden');
+                applyUserPermissions();
+            } else {
+                document.getElementById('login-modal').classList.remove('hidden');
+            }
+
+            renderAll();
+        }
+
+        function saveUsersState() {
+            localStorage.setItem('JIALIN_USERS_LIST', JSON.stringify(usersList));
+            renderUsersSection();
+        }
+
+        function saveState() {
+            localStorage.setItem('JIALIN_MES_STATE', JSON.stringify(state));
+            renderAll();
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const uInput = document.getElementById('login-username').value.trim();
+            const pInput = document.getElementById('login-password').value.trim();
+            const errEl = document.getElementById('login-error-msg');
+
+            const found = usersList.find(u => u.username === uInput && u.password === pInput);
+
+            if (!found) {
+                errEl.innerText = "Tên đăng nhập hoặc mật khẩu không chính xác!";
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            if (found.status === "Đã khóa") {
+                errEl.innerText = "Tài khoản thành viên này đã bị khóa!";
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            loggedInUser = found;
+            sessionStorage.setItem('JIALIN_LOGGED_USER', JSON.stringify(found));
+            errEl.classList.add('hidden');
+            document.getElementById('login-modal').classList.add('hidden');
+
+            applyUserPermissions();
+            renderAll();
+        }
+
+        function applyUserPermissions() {
+            if (!loggedInUser) return;
+
+            document.getElementById('current-user-name').innerText = loggedInUser.fullname;
+            document.getElementById('current-user-role').innerText = loggedInUser.role;
+
+            const isManager = loggedInUser.role === 'Quản Lý Sản Xuất';
+            const userNavBtn = document.getElementById('nav-btn-users');
+
+            if (isManager) {
+                if (userNavBtn) userNavBtn.classList.remove('hidden');
+            } else {
+                if (userNavBtn) userNavBtn.classList.add('hidden');
+                switchTab('dashboard');
+            }
+        }
+
+        function handleLogout() {
+            if (confirm("Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?")) {
+                sessionStorage.removeItem('JIALIN_LOGGED_USER');
+                loggedInUser = null;
+                document.getElementById('login-modal').classList.remove('hidden');
+            }
+        }
+
+        function resetSystemData() {
+            if (confirm("Khôi phục toàn bộ dữ liệu hệ thống về mặc định ban đầu?")) {
+                state = JSON.parse(JSON.stringify(DEFAULT_DATA));
+                usersList = JSON.parse(JSON.stringify(DEFAULT_USERS_LIST));
+                saveUsersState();
+                saveState();
+            }
+        }
+
+        function getAllProductCodes() {
+            const cad = state.cadDrawings.map(c => c.code);
+            const bom = state.bomItems.map(b => b.productCode);
+            const lsx = state.lsxList.map(l => l.productCode);
+            return [...new Set([...cad, ...bom, ...lsx])].filter(Boolean);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('bg-slate-700', 'text-white', 'active'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const targetBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+            if (targetBtn) targetBtn.classList.add('bg-slate-700', 'text-white', 'active');
+            if (tabName === 'dashboard') renderCharts();
+        }
+
+        function toggleTheme() { document.documentElement.classList.toggle('dark'); }
+
+        function syncCloud(event) {
+            const btn = event.currentTarget, originalText = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang đồng bộ...`;
+            setTimeout(() => {
+                btn.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-300"></i> Hoàn tất!`;
+                setTimeout(() => btn.innerHTML = originalText, 2000);
+            }, 1000);
+        }
+
+        function toggleSimulation() {
+            isSimulating = !isSimulating;
+            const dot = document.getElementById('sim-dot'), text = document.getElementById('sim-text');
+            if (isSimulating) {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping";
+                text.innerText = "Mô phỏng: BẬT";
+                simInterval = setInterval(runSimulationStep, 2500);
+            } else {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-gray-400";
+                text.innerText = "Mô phỏng: TẮT";
+                clearInterval(simInterval);
+            }
+        }
+
+        function runSimulationStep() {
+            let updated = false;
+            state.lsxList.forEach(lsx => {
+                if (lsx.status === "Đang chạy" && lsx.actualQty < lsx.planQty) {
+                    lsx.actualQty += Math.floor(Math.random() * 2) + 1;
+                    if (lsx.actualQty >= lsx.planQty) {
+                        lsx.actualQty = lsx.planQty;
+                        lsx.status = "Hoàn thành";
+                        lsx.progress = 100;
+                        lsx.stage = "KCS / Đóng gói";
+                    } else {
+                        lsx.progress = Math.round((lsx.actualQty / lsx.planQty) * 100);
+                    }
+                    updated = true;
+                }
+            });
+            if (updated) saveState();
+        }
+
+        function runMrpCalculation() {
+            state.materials.forEach(m => m.requiredQty = 0);
+            state.lsxList.forEach(lsx => {
+                if (lsx.status === "Đang chạy") {
+                    const remainingQty = lsx.planQty - lsx.actualQty;
+                    const boms = state.bomItems.filter(b => b.productCode === lsx.productCode);
+                    boms.forEach(bom => {
+                        const mat = state.materials.find(m => m.code === bom.code);
+                        if (mat) mat.requiredQty += Math.round(remainingQty * bom.qty * (1 + (bom.scrap / 100)) * 10) / 10;
+                    });
+                }
+            });
+            saveState();
+            alert("Đã cập nhật tính toán nhu cầu MRP tự động!");
+        }
+
+        // ---------- XỬ LÝ NÚT NHẬP FILE EXCEL / CSV ----------
+        function triggerImportCSV(moduleType) {
+            currentImportModule = moduleType;
+            const fileInput = document.getElementById('global-csv-file-input');
+            fileInput.value = '';
+            fileInput.click();
+        }
+
+        function processImportCSV(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const text = evt.target.result;
+                parseAndSaveCSV(text, currentImportModule);
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function parseAndSaveCSV(text, moduleType) {
+            const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
+            if (lines.length < 2) {
+                alert("File rỗng hoặc không đúng định dạng!");
+                return;
+            }
+
+            let count = 0;
+            const todayStr = new Date().toISOString().slice(0, 10);
+
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+                if (cols.length === 0 || !cols[0]) continue;
+
+                if (moduleType === 'users') {
+                    const [id, username, fullname, password, role, status] = cols;
+                    if (username && !usersList.some(u => u.username === username)) {
+                        usersList.push({
+                            id: 'usr-' + Date.now() + Math.floor(Math.random() * 100),
+                            username: username,
+                            fullname: fullname || username,
+                            password: password || '123456',
+                            role: role || 'Thành Viên',
+                            status: status || 'Hoạt động'
+                        });
+                        count++;
+                    }
+                } else if (moduleType === 'bom') {
+                    const [productCode, code, name, qty, unit, scrap, price] = cols;
+                    state.bomItems.push({
+                        id: 'bom-' + Date.now() + Math.floor(Math.random() * 100),
+                        productCode: productCode || 'HW681',
+                        code: code || ('MAT-' + Date.now()),
+                        name: name || 'Vật tư nhập file',
+                        qty: parseFloat(qty) || 1,
+                        unit: unit || 'Cái',
+                        scrap: parseFloat(scrap) || 0,
+                        price: parseFloat(price) || 0
+                    });
+                    count++;
+                } else if (moduleType === 'production') {
+                    const [code, productCode, line, planQty, actualQty, startDate, dueDate, stage, progress, status] = cols;
+                    const plan = parseInt(planQty) || 10;
+                    const act = parseInt(actualQty) || 0;
+                    state.lsxList.push({
+                        id: 'lsx-' + Date.now() + Math.floor(Math.random() * 100),
+                        code: code || ('LSX-2026-' + Math.floor(100 + Math.random() * 900)),
+                        productCode: productCode || 'HW681',
+                        line: line || 'Chuyền 1 (Laser-Cơ khí)',
+                        planQty: plan,
+                        actualQty: act,
+                        startDate: startDate || todayStr,
+                        dueDate: dueDate || todayStr,
+                        stage: stage || 'Cắt laser',
+                        progress: parseInt(progress) || (plan > 0 ? Math.round((act / plan) * 100) : 0),
+                        status: status || 'Đang chạy'
+                    });
+                    count++;
+                } else if (moduleType === 'mrp') {
+                    const [code, name, currentStock, requiredQty, safetyStock, unit, planDate, issueDate] = cols;
+                    state.materials.push({
+                        id: 'mat-' + Date.now() + Math.floor(Math.random() * 100),
+                        code: code || ('MAT-' + Date.now()),
+                        name: name || 'Vật tư mới',
+                        currentStock: parseFloat(currentStock) || 0,
+                        requiredQty: parseFloat(requiredQty) || 0,
+                        safetyStock: parseFloat(safetyStock) || 10,
+                        unit: unit || 'Kg',
+                        planDate: planDate || todayStr,
+                        issueDate: issueDate || todayStr
+                    });
+                    count++;
+                } else if (moduleType === 'qc') {
+                    const [code, type, ref, passQty, failQty, inspector, status] = cols;
+                    const pass = parseInt(passQty) || 0;
+                    const fail = parseInt(failQty) || 0;
+                    state.qcLogs.push({
+                        id: 'qc-' + Date.now() + Math.floor(Math.random() * 100),
+                        code: code || ('QC-' + Math.floor(100 + Math.random() * 900)),
+                        type: type || 'IQC (Đầu vào)',
+                        ref: ref || 'Mẫu nhập',
+                        passQty: pass,
+                        failQty: fail,
+                        inspector: inspector || 'Inspector',
+                        status: status || (fail === 0 ? 'Đạt chuẩn' : 'Có sản phẩm lỗi')
+                    });
+                    count++;
+                } else if (moduleType === 'machines') {
+                    const [id, name, load, temp, status] = cols;
+                    state.machines.push({
+                        id: 'mac-' + Date.now() + Math.floor(Math.random() * 100),
+                        name: name || 'Thiết bị mới',
+                        load: load || '50%',
+                        temp: temp || '30°C',
+                        status: status || 'Sẵn sàng',
+                        alert: false
+                    });
+                    count++;
+                } else if (moduleType === 'workers') {
+                    const [id, name, shift, line, lsxCode] = cols;
+                    state.workers.push({
+                        id: 'wrk-' + Date.now() + Math.floor(Math.random() * 100),
+                        name: name || 'Công nhân mới',
+                        shift: shift || 'Ca Sáng (07:30 - 16:30)',
+                        line: line || 'Chuyền 1 (Laser-Cơ khí)',
+                        lsxCode: lsxCode || ''
+                    });
+                    count++;
+                }
+            }
+
+            if (moduleType === 'users') {
+                saveUsersState();
+            } else {
+                saveState();
+            }
+            alert(`Đã nhập thành công ${count} dòng dữ liệu từ file!`);
+        }
+
+        function renderAll() {
+            renderHeaderUser(); renderDashboard(); renderCadSection(); renderBomSection();
+            renderProductionSection(); renderMrpSection(); renderQcSection();
+            renderMachinesSection(); renderWorkersSection(); renderUsersSection();
+        }
+
+        function renderHeaderUser() {
+            if (loggedInUser) {
+                document.getElementById('current-user-name').innerText = loggedInUser.fullname;
+                document.getElementById('current-user-role').innerText = loggedInUser.role;
+            }
+        }
+
+        function openProfileEditModal() {
+            if (loggedInUser) {
+                document.getElementById('profile-form-fullname').value = loggedInUser.fullname;
+                document.getElementById('profile-form-role').value = loggedInUser.role;
+                document.getElementById('modal-profile').classList.remove('hidden');
+            }
+        }
+
+        function closeProfileEditModal() { document.getElementById('modal-profile').classList.add('hidden'); }
+
+        function saveProfileHeaderForm(e) {
+            e.preventDefault();
+            const fullname = document.getElementById('profile-form-fullname').value.trim();
+            const role = document.getElementById('profile-form-role').value.trim();
+
+            if (loggedInUser) {
+                loggedInUser.fullname = fullname;
+                loggedInUser.role = role;
+                sessionStorage.setItem('JIALIN_LOGGED_USER', JSON.stringify(loggedInUser));
+
+                const u = usersList.find(x => x.id === loggedInUser.id);
+                if (u) { u.fullname = fullname; u.role = role; saveUsersState(); }
+            }
+
+            closeProfileEditModal();
+            applyUserPermissions();
+        }
+
+        // DASHBOARD
+        function renderDashboard() {
+            const totalLsx = state.lsxList.length;
+            const runningLsx = state.lsxList.filter(l => l.status === "Đang chạy").length;
+            const totalPlan = state.lsxList.reduce((a, l) => a + l.planQty, 0);
+            const totalActual = state.lsxList.reduce((a, l) => a + l.actualQty, 0);
+            const progressPct = totalPlan > 0 ? Math.round((totalActual / totalPlan) * 100) : 0;
+
+            document.getElementById('stat-total-lsx').innerText = totalLsx;
+            document.getElementById('stat-running-lsx').innerText = runningLsx;
+            document.getElementById('stat-total-output').innerText = `${totalActual} / ${totalPlan}`;
+            document.getElementById('stat-progress-pct').innerText = `${progressPct}% tiến độ tổng`;
+            document.getElementById('stat-qc-defects').innerText = state.qcLogs.reduce((a, q) => a + q.failQty, 0);
+            document.getElementById('stat-mrp-alerts').innerText = state.materials.filter(m => (m.currentStock - m.requiredQty) < m.safetyStock).length;
+
+            document.getElementById('machine-list-container').innerHTML = state.machines.map(m => `
+                <div class="p-3 rounded-lg border ${m.alert ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700'}">
+                    <div class="flex justify-between items-center mb-1"><span class="font-bold text-xs">${m.name}</span><span class="w-2 h-2 rounded-full ${m.alert ? 'bg-rose-500 animate-ping' : 'bg-emerald-500'}"></span></div>
+                    <p class="text-[11px] text-slate-500">Trạng thái: <strong class="${m.alert ? 'text-rose-500' : 'text-emerald-600'}">${m.status}</strong></p>
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-2"><span>Tải: ${m.load}</span><span>Nhiệt: ${m.temp}</span></div>
+                </div>
+            `).join('');
+
+            renderCharts();
+        }
+
+        function renderCharts() {
+            const ctxP = document.getElementById('chart-production')?.getContext('2d');
+            if (ctxP) {
+                if (chartProdInstance) chartProdInstance.destroy();
+                chartProdInstance = new Chart(ctxP, {
+                    type: 'bar',
+                    data: {
+                        labels: state.lsxList.map(l => l.code),
+                        datasets: [
+                            { label: 'Kế hoạch', data: state.lsxList.map(l => l.planQty), backgroundColor: '#94a3b8' },
+                            { label: 'Thực tế', data: state.lsxList.map(l => l.actualQty), backgroundColor: '#3b82f6' }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+            }
+
+            const ctxQ = document.getElementById('chart-qc')?.getContext('2d');
+            if (ctxQ) {
+                if (chartQcInstance) chartQcInstance.destroy();
+                chartQcInstance = new Chart(ctxQ, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Sản Phẩm Đạt', 'Lỗi/Phế Phẩm'],
+                        datasets: [{
+                            data: [state.qcLogs.reduce((a, q) => a + q.passQty, 0), state.qcLogs.reduce((a, q) => a + q.failQty, 0)],
+                            backgroundColor: ['#10b981', '#f43f5e']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+            }
+        }
+
+        // CAD (XỬ LÝ HIỂN THỊ HỖ TRỢ FILE PDF TRỰC TIẾP)
+        function renderCadSection() {
+            const listEl = document.getElementById('cad-item-list');
+            if (state.cadDrawings.length === 0) { listEl.innerHTML = `<p class="text-xs text-slate-400">Chưa có bản vẽ.</p>`; return; }
+            if (!activeCadId || !state.cadDrawings.find(c => c.id === activeCadId)) activeCadId = state.cadDrawings[0].id;
+
+            listEl.innerHTML = state.cadDrawings.map(cad => `
+                <div onclick="selectCad('${cad.id}')" class="p-3 rounded-lg border cursor-pointer transition ${cad.id === activeCadId ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50'}">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-xs text-blue-600">${cad.code}</span>
+                        <span class="text-[10px] ${cad.fileType === 'pdf' ? 'bg-rose-500 text-white' : 'bg-slate-200 dark:bg-slate-700'} px-1.5 py-0.5 rounded font-bold">${cad.fileType ? cad.fileType.toUpperCase() : 'SVG'} | ${cad.rev}</span>
+                    </div>
+                    <p class="font-semibold text-xs mt-1 truncate">${cad.title}</p>
+                    <div class="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-200 text-[11px]">
+                        <button onclick="event.stopPropagation(); openCadModal('${cad.id}')" class="text-blue-500"><i class="fa-solid fa-pen"></i> Sửa</button>
+                        <button onclick="event.stopPropagation(); triggerDelete('cad', '${cad.id}')" class="text-rose-500"><i class="fa-solid fa-trash"></i> Xóa</button>
+                    </div>
+                </div>
+            `).join('');
+
+            const active = state.cadDrawings.find(c => c.id === activeCadId);
+            if (active) {
+                document.getElementById('cad-active-title').innerText = active.title;
+                document.getElementById('cad-active-sub').innerText = `Mã: ${active.code} | Rev: ${active.rev} | Định dạng: ${(active.fileType || 'svg').toUpperCase()}`;
+                document.getElementById('cad-spec-text').innerText = active.spec;
+
+                const viewport = document.getElementById('svg-viewport');
+                if (active.fileType === 'pdf' && active.fileData) {
+                    viewport.innerHTML = `<iframe src="${active.fileData}" class="w-full h-[500px] border-0 rounded-lg shadow-inner"></iframe>`;
+                } else if (active.fileType === 'image' && active.fileData) {
+                    viewport.innerHTML = `<img src="${active.fileData}" class="max-w-full max-h-[500px] object-contain rounded-lg">`;
+                } else {
+                    viewport.innerHTML = active.svgContent || `<p class="text-xs text-slate-400">Không có dữ liệu xem trước</p>`;
+                }
+
+                document.getElementById('cad-ecn-list').innerHTML = (active.ecnLogs || []).map(l => `<li>${l}</li>`).join('');
+            }
+        }
+        function selectCad(id) { activeCadId = id; renderCadSection(); }
+        function zoomCad(factor) { cadZoomLevel *= factor; document.getElementById('svg-viewport').style.transform = `scale(${cadZoomLevel})`; }
+        function resetCadZoom() { cadZoomLevel = 1; document.getElementById('svg-viewport').style.transform = `scale(1)`; }
+        function printCadDrawing() { window.print(); }
+
+        // BOM
+        function renderBomSection() {
+            const selectEl = document.getElementById('bom-product-select');
+            const products = getAllProductCodes();
+            const curr = selectEl.value;
+            selectEl.innerHTML = products.map(p => `<option value="${p}">${p}</option>`).join('');
+            if (curr && products.includes(curr)) selectEl.value = curr;
+            renderBomTable();
+        }
+
+        function renderBomTable() {
+            const p = document.getElementById('bom-product-select').value;
+            const tableBody = document.getElementById('bom-table-body');
+            const items = state.bomItems.filter(b => b.productCode === p);
+
+            if (!p || items.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-slate-400">Chưa có linh kiện BOM cho sản phẩm này.</td></tr>`;
+                document.getElementById('bom-total-cost').innerText = '0 VNĐ'; return;
+            }
+
+            let total = 0;
+            tableBody.innerHTML = items.map(item => {
+                const sub = item.qty * item.price * (1 + (item.scrap / 100));
+                total += sub;
+                return `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                        <td class="px-4 py-3 font-mono font-bold text-xs">${item.code}</td>
+                        <td class="px-4 py-3 font-medium">${item.name}</td>
+                        <td class="px-4 py-3">${item.qty}</td>
+                        <td class="px-4 py-3">${item.unit}</td>
+                        <td class="px-4 py-3">${item.scrap}%</td>
+                        <td class="px-4 py-3">${item.price.toLocaleString()} VNĐ</td>
+                        <td class="px-4 py-3 font-semibold">${Math.round(sub).toLocaleString()} VNĐ</td>
+                        <td class="px-4 py-3 text-center space-x-2">
+                            <button onclick="openBomModal('${item.id}')" class="text-blue-500"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="triggerDelete('bom', '${item.id}')" class="text-rose-500"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            }).join('');
+            document.getElementById('bom-total-cost').innerText = `${Math.round(total).toLocaleString()} VNĐ`;
+        }
+
+        // PRODUCTION
+        function renderProductionSection() {
+            const tableBody = document.getElementById('lsx-table-body');
+            if (state.lsxList.length === 0) { tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-slate-400">Chưa có lệnh sản xuất.</td></tr>`; return; }
+            tableBody.innerHTML = state.lsxList.map(lsx => `
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                    <td class="px-4 py-3 font-bold font-mono text-xs text-blue-600">${lsx.code}</td>
+                    <td class="px-4 py-3 font-medium">${lsx.productCode}</td>
+                    <td class="px-4 py-3 text-xs">${lsx.line}</td>
+                    <td class="px-4 py-3 font-semibold">${lsx.actualQty} / ${lsx.planQty}</td>
+                    <td class="px-4 py-3 text-xs font-mono text-blue-600">${lsx.startDate || '---'}</td>
+                    <td class="px-4 py-3 text-xs font-mono text-rose-600 font-bold">${lsx.dueDate || '---'}</td>
+                    <td class="px-4 py-3 text-xs"><span class="bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded">${lsx.stage}</span></td>
+                    <td class="px-4 py-3">
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden"><div class="bg-blue-600 h-2" style="width: ${lsx.progress}%"></div></div>
+                        <span class="text-[10px] text-slate-400">${lsx.progress}%</span>
+                    </td>
+                    <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[11px] font-bold ${lsx.status === 'Đang chạy' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}">${lsx.status}</span></td>
+                    <td class="px-4 py-3 text-center space-x-2">
+                        <button onclick="openLsxModal('${lsx.id}')" class="text-blue-500"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="triggerDelete('lsx', '${lsx.id}')" class="text-rose-500"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        // MRP
+        function renderMrpSection() {
+            const tableBody = document.getElementById('mrp-table-body');
+            if (state.materials.length === 0) { tableBody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-slate-400">Chưa có vật tư kho.</td></tr>`; return; }
+            tableBody.innerHTML = state.materials.map(mat => {
+                const avail = mat.currentStock - mat.requiredQty;
+                const short = avail < mat.safetyStock;
+                return `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                        <td class="px-4 py-3 font-mono font-bold text-xs">${mat.code}</td>
+                        <td class="px-4 py-3 font-medium">${mat.name}</td>
+                        <td class="px-4 py-3 font-semibold">${mat.currentStock}</td>
+                        <td class="px-4 py-3 text-blue-600 font-bold">${mat.requiredQty}</td>
+                        <td class="px-4 py-3">${mat.safetyStock}</td>
+                        <td class="px-4 py-3">${mat.unit}</td>
+                        <td class="px-4 py-3 text-xs font-mono text-emerald-600">${mat.planDate || '---'}</td>
+                        <td class="px-4 py-3 text-xs font-mono text-indigo-600 font-bold">${mat.issueDate || '---'}</td>
+                        <td class="px-4 py-3">${short ? `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-xs font-bold">Thiếu ${Math.abs(Math.round(avail - mat.safetyStock))} ${mat.unit}</span>` : `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs font-bold">An toàn</span>`}</td>
+                        <td class="px-4 py-3 text-center space-x-2">
+                            <button onclick="openMaterialModal('${mat.id}')" class="text-blue-500"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="triggerDelete('mrp', '${mat.id}')" class="text-rose-500"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+
+        // QC
+        function renderQcSection() {
+            const tableBody = document.getElementById('qc-table-body');
+            if (state.qcLogs.length === 0) { tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-slate-400">Chưa có phiếu QC.</td></tr>`; return; }
+            tableBody.innerHTML = state.qcLogs.map(qc => `
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                    <td class="px-4 py-3 font-mono font-bold text-xs">${qc.code}</td>
+                    <td class="px-4 py-3"><span class="bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-xs">${qc.type}</span></td>
+                    <td class="px-4 py-3 font-medium">${qc.ref}</td>
+                    <td class="px-4 py-3 font-bold">${qc.passQty + qc.failQty}</td>
+                    <td class="px-4 py-3"><span class="text-emerald-600 font-bold">${qc.passQty}</span> / <span class="text-rose-600 font-bold">${qc.failQty}</span></td>
+                    <td class="px-4 py-3 text-xs">${qc.inspector}</td>
+                    <td class="px-4 py-3 font-semibold text-xs ${qc.failQty === 0 ? 'text-emerald-600' : 'text-amber-500'}">${qc.status}</td>
+                    <td class="px-4 py-3 text-center space-x-2">
+                        <button onclick="openQcModal('${qc.id}')" class="text-blue-500"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="triggerDelete('qc', '${qc.id}')" class="text-rose-500"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        // MACHINES
+        function renderMachinesSection() {
+            const tableBody = document.getElementById('machines-table-body');
+            if (!state.machines || state.machines.length === 0) { tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-slate-400">Chưa có máy móc.</td></tr>`; return; }
+            tableBody.innerHTML = state.machines.map(m => `
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                    <td class="px-4 py-3 font-mono font-bold text-xs">${m.id}</td>
+                    <td class="px-4 py-3 font-bold">${m.name}</td>
+                    <td class="px-4 py-3 font-semibold text-blue-600">${m.load}</td>
+                    <td class="px-4 py-3">${m.temp}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs font-bold ${m.alert ? 'bg-rose-100 text-rose-700 animate-pulse' : 'bg-emerald-100 text-emerald-700'}">${m.status}</span></td>
+                    <td class="px-4 py-3 text-center space-x-2">
+                        <button onclick="openMachineModal('${m.id}')" class="text-blue-500 hover:text-blue-700"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button onclick="triggerDelete('machines', '${m.id}')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        // WORKERS
+        function renderWorkersSection() {
+            const tableBody = document.getElementById('workers-table-body');
+            if (!state.workers || state.workers.length === 0) { tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-slate-400">Chưa có công nhân.</td></tr>`; return; }
+            tableBody.innerHTML = state.workers.map(w => `
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                    <td class="px-4 py-3 font-mono font-bold text-xs">${w.id}</td>
+                    <td class="px-4 py-3 font-bold">${w.name}</td>
+                    <td class="px-4 py-3 text-xs">${w.shift}</td>
+                    <td class="px-4 py-3 text-xs"><span class="bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded">${w.line}</span></td>
+                    <td class="px-4 py-3 font-mono font-semibold text-blue-600">${w.lsxCode || '---'}</td>
+                    <td class="px-4 py-3 text-center space-x-2">
+                        <button onclick="openWorkerModal('${w.id}')" class="text-blue-500 hover:text-blue-700"><i class="fa-solid fa-user-pen"></i></button>
+                        <button onclick="triggerDelete('workers', '${w.id}')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        // USERS ADMIN
+        function renderUsersSection() {
+            const tableBody = document.getElementById('user-table-body');
+            const totalEl = document.getElementById('stat-user-total');
+            const activeEl = document.getElementById('stat-user-active');
+            const lockedEl = document.getElementById('stat-user-locked');
+
+            if (!tableBody) return;
+
+            const total = usersList.length;
+            const active = usersList.filter(u => u.status === 'Hoạt động').length;
+            const locked = usersList.filter(u => u.status === 'Đã khóa').length;
+
+            if (totalEl) totalEl.innerText = total;
+            if (activeEl) activeEl.innerText = active;
+            if (lockedEl) lockedEl.innerText = locked;
+
+            if (usersList.length === 0) { tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-slate-400">Chưa có người dùng.</td></tr>`; return; }
+            tableBody.innerHTML = usersList.map(u => `
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                    <td class="px-4 py-3 font-mono font-bold text-xs text-slate-500">${u.id}</td>
+                    <td class="px-4 py-3 font-bold">${u.fullname}</td>
+                    <td class="px-4 py-3 font-mono text-xs font-semibold text-blue-600">${u.username}</td>
+                    <td class="px-4 py-3 font-mono text-xs font-semibold text-amber-600">${u.password || '******'}</td>
+                    <td class="px-4 py-3"><span class="bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded text-xs font-medium">${u.role}</span></td>
+                    <td class="px-4 py-3 font-bold text-xs"><span class="px-2 py-0.5 rounded ${u.status === 'Hoạt động' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${u.status}</span></td>
+                    <td class="px-4 py-3 text-center space-x-2">
+                        <button onclick="toggleUserStatus('${u.id}')" title="Khóa / Mở khóa" class="text-amber-500 hover:text-amber-700"><i class="fa-solid fa-power-off"></i></button>
+                        <button onclick="openUserEditModal('${u.id}')" title="Chỉnh sửa thông tin / Đổi Mật Khẩu" class="text-blue-500 hover:text-blue-700"><i class="fa-solid fa-user-pen"></i></button>
+                        ${u.username !== 'ptnl004' ? `<button onclick="triggerDelete('users', '${u.id}')" title="Xóa tài khoản" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </td>
+                </tr>`).join('');
+        }
+
+        function toggleUserStatus(id) {
+            const user = usersList.find(u => u.id === id);
+            if (user) {
+                user.status = user.status === 'Hoạt động' ? 'Đã khóa' : 'Hoạt động';
+                saveUsersState();
+            }
+        }
+
+        // CSV EXPORT (UTF-8 WITH BOM)
+        function exportTableToCSV(moduleType) {
+            let csv = "\uFEFF", filename = `Jialin_${moduleType}_${new Date().toISOString().slice(0,10)}.csv`;
+            if (moduleType === 'cad') {
+                csv += "Ma_Design,Ten_Ban_Ve,Phien_Ban,Spec\n";
+                state.cadDrawings.forEach(c => csv += `"${c.code}","${c.title}","${c.rev}","${c.spec}"\n`);
+            } else if (moduleType === 'bom') {
+                csv += "Dong_May,Ma_Linh_Kien,Ten_Vat_Tu,So_Luong,Don_Vi,Hao_Hut_Pct,Don_Gia_VND\n";
+                state.bomItems.forEach(b => csv += `"${b.productCode}","${b.code}","${b.name}",${b.qty},"${b.unit}",${b.scrap},${b.price}\n`);
+            } else if (moduleType === 'production') {
+                csv += "Ma_LSX,SanPham,Chuyen,Plan,Actual,Ngay_Len_Lenh_SX,Han_Hoan_Thanh_SX,Stage,Progress,Status\n";
+                state.lsxList.forEach(l => csv += `"${l.code}","${l.productCode}","${l.line}",${l.planQty},${l.actualQty},"${l.startDate || ''}","${l.dueDate || ''}","${l.stage}",${l.progress},"${l.status}"\n`);
+            } else if (moduleType === 'mrp') {
+                csv += "Ma_Vat_Tu,Ten_Vat_Tu,Stock,Demand,Safety,Unit,Ngay_Len_KH_VT,Ngay_Cap_VT\n";
+                state.materials.forEach(m => csv += `"${m.code}","${m.name}",${m.currentStock},${m.requiredQty},${m.safetyStock},"${m.unit}","${m.planDate || ''}","${m.issueDate || ''}"\n`);
+            } else if (moduleType === 'qc') {
+                csv += "Ma_Phieu,Type,Ref,Pass,Fail,Inspector,Status\n";
+                state.qcLogs.forEach(q => csv += `"${q.code}","${q.type}","${q.ref}",${q.passQty},${q.failQty},"${q.inspector}","${q.status}"\n`);
+            } else if (moduleType === 'machines') {
+                csv += "Ma_May,Ten_May,Tai,Nhiet,Status\n";
+                state.machines.forEach(m => csv += `"${m.id}","${m.name}","${m.load}","${m.temp}","${m.status}"\n`);
+            } else if (moduleType === 'workers') {
+                csv += "Ma_CN,Ten_Cong_Nhan,Ca,Chuyen,LSX\n";
+                state.workers.forEach(w => csv += `"${w.id}","${w.name}","${w.shift}","${w.line}","${w.lsxCode}"\n`);
+            } else if (moduleType === 'users') {
+                csv += "Ma_NV,Username,Fullname,Password,Role,Status\n";
+                usersList.forEach(u => csv += `"${u.id}","${u.username}","${u.fullname}","${u.password}","${u.role}","${u.status}"\n`);
+            }
+
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+            link.download = filename;
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        }
+
+        // DELETE HANDLER
+        function triggerDelete(type, id) { deleteTarget = { type, id }; document.getElementById('modal-confirm-delete').classList.remove('hidden'); }
+        function closeDeleteModal() { document.getElementById('modal-confirm-delete').classList.add('hidden'); }
+        document.getElementById('btn-confirm-delete-action').addEventListener('click', () => {
+            const { type, id } = deleteTarget;
+            if (type === 'cad') state.cadDrawings = state.cadDrawings.filter(x => x.id !== id);
+            else if (type === 'bom') state.bomItems = state.bomItems.filter(x => x.id !== id);
+            else if (type === 'lsx') state.lsxList = state.lsxList.filter(x => x.id !== id);
+            else if (type === 'mrp') state.materials = state.materials.filter(x => x.id !== id);
+            else if (type === 'qc') state.qcLogs = state.qcLogs.filter(x => x.id !== id);
+            else if (type === 'machines') state.machines = state.machines.filter(x => x.id !== id);
+            else if (type === 'workers') state.workers = state.workers.filter(x => x.id !== id);
+            else if (type === 'users') {
+                usersList = usersList.filter(x => x.id !== id);
+                saveUsersState();
+                closeDeleteModal();
+                return;
+            }
+            closeDeleteModal(); saveState();
+        });
+
+        // MODAL TOGGLES & SAVES
+        function toggleNewProductInput(val, mode) {
+            const container = document.getElementById(`${mode}-new-product-container`);
+            const inputNew = document.getElementById(`${mode}-form-new-product`);
+            if (val === '__NEW_PRODUCT__') { container.classList.remove('hidden'); inputNew.required = true; }
+            else { container.classList.add('hidden'); inputNew.required = false; }
+        }
+
+        // CAD MODAL (NÂNG CẤP ĐỌC VÀ LƯU BẢN VẼ PDF/HÌNH ẢNH DẠNG BASE64)
+        function openCadModal(id = null) {
+            document.getElementById('form-cad').reset();
+            if (id) {
+                const item = state.cadDrawings.find(c => c.id === id);
+                document.getElementById('cad-form-id').value = item.id;
+                document.getElementById('cad-form-title').value = item.title;
+                document.getElementById('cad-form-code').value = item.code;
+                document.getElementById('cad-form-rev').value = item.rev;
+                document.getElementById('cad-form-spec').value = item.spec;
+            } else { document.getElementById('cad-form-id').value = ''; }
+            document.getElementById('modal-cad').classList.remove('hidden');
+        }
+        function closeCadModal() { document.getElementById('modal-cad').classList.add('hidden'); }
+
+        function saveCadForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('cad-form-id').value;
+            const code = document.getElementById('cad-form-code').value;
+            const title = document.getElementById('cad-form-title').value;
+            const rev = document.getElementById('cad-form-rev').value;
+            const spec = document.getElementById('cad-form-spec').value;
+            const fileInput = document.getElementById('cad-form-file');
+            const file = fileInput.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    const base64Data = evt.target.result;
+                    let fileType = 'image';
+                    if (file.type === 'application/pdf') {
+                        fileType = 'pdf';
+                    }
+
+                    if (id) {
+                        const item = state.cadDrawings.find(c => c.id === id);
+                        item.code = code; item.title = title; item.rev = rev; item.spec = spec;
+                        item.fileType = fileType; item.fileData = base64Data;
+                    } else {
+                        state.cadDrawings.push({
+                            id: 'cad-' + Date.now(),
+                            code, title, rev, spec,
+                            fileType, fileData: base64Data,
+                            ecnLogs: [`${rev}: Đã tải lên file bản vẽ ${fileType.toUpperCase()}`]
+                        });
+                    }
+                    closeCadModal();
+                    saveState();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                if (id) {
+                    const item = state.cadDrawings.find(c => c.id === id);
+                    item.code = code; item.title = title; item.rev = rev; item.spec = spec;
+                } else {
+                    state.cadDrawings.push({
+                        id: 'cad-' + Date.now(),
+                        code, title, rev, spec,
+                        fileType: 'svg',
+                        svgContent: `<svg viewBox="0 0 400 250" class="w-full h-full text-blue-400"><rect x="50" y="50" width="300" height="150" fill="none" stroke="currentColor" stroke-width="2"/><text x="140" y="130" fill="#94a3b8">${code} CAD</text></svg>`,
+                        ecnLogs: [`${rev}: Khởi tạo bản vẽ mộc`]
+                    });
+                }
+                closeCadModal();
+                saveState();
+            }
+        }
+
+        // BOM MODAL
+        function openBomModal(id = null) {
+            document.getElementById('form-bom').reset();
+            const prodSelect = document.getElementById('bom-form-product');
+            const products = getAllProductCodes();
+            let opts = products.map(p => `<option value="${p}">${p}</option>`).join('');
+            opts += `<option value="__NEW_PRODUCT__" class="font-bold text-blue-600">+ Thêm dòng máy mới...</option>`;
+            prodSelect.innerHTML = opts; toggleNewProductInput('', 'bom');
+
+            if (id) {
+                const item = state.bomItems.find(b => b.id === id);
+                document.getElementById('bom-form-id').value = item.id;
+                document.getElementById('bom-form-product').value = item.productCode;
+                document.getElementById('bom-form-code').value = item.code;
+                document.getElementById('bom-form-name').value = item.name;
+                document.getElementById('bom-form-qty').value = item.qty;
+                document.getElementById('bom-form-unit').value = item.unit;
+                document.getElementById('bom-form-scrap').value = item.scrap;
+                document.getElementById('bom-form-price').value = item.price;
+            } else { document.getElementById('bom-form-id').value = ''; }
+            document.getElementById('modal-bom').classList.remove('hidden');
+        }
+        function closeBomModal() { document.getElementById('modal-bom').classList.add('hidden'); }
+        function saveBomForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('bom-form-id').value;
+            let productCode = document.getElementById('bom-form-product').value;
+            if (productCode === '__NEW_PRODUCT__') productCode = document.getElementById('bom-form-new-product').value.trim();
+            const code = document.getElementById('bom-form-code').value, name = document.getElementById('bom-form-name').value, qty = parseFloat(document.getElementById('bom-form-qty').value), unit = document.getElementById('bom-form-unit').value, scrap = parseFloat(document.getElementById('bom-form-scrap').value), price = parseFloat(document.getElementById('bom-form-price').value);
+
+            if (id) { const item = state.bomItems.find(b => b.id === id); item.productCode = productCode; item.code = code; item.name = name; item.qty = qty; item.unit = unit; item.scrap = scrap; item.price = price; }
+            else { state.bomItems.push({ id: 'bom-' + Date.now(), productCode, code, name, qty, unit, scrap, price }); }
+            document.getElementById('bom-product-select').value = productCode;
+            closeBomModal(); saveState();
+        }
+
+        // LSX MODAL
+        function openLsxModal(id = null) {
+            document.getElementById('form-lsx').reset();
+            const prodSelect = document.getElementById('lsx-form-product');
+            const products = getAllProductCodes();
+            let opts = products.map(p => `<option value="${p}">${p}</option>`).join('');
+            opts += `<option value="__NEW_PRODUCT__" class="font-bold text-blue-600">+ Thêm dòng máy mới...</option>`;
+            prodSelect.innerHTML = opts; toggleNewProductInput('', 'lsx');
+
+            const todayStr = new Date().toISOString().slice(0, 10);
+
+            if (id) {
+                const item = state.lsxList.find(l => l.id === id);
+                document.getElementById('lsx-form-id').value = item.id;
+                document.getElementById('lsx-form-code').value = item.code;
+                document.getElementById('lsx-form-product').value = item.productCode;
+                document.getElementById('lsx-form-start-date').value = item.startDate || todayStr;
+                document.getElementById('lsx-form-due-date').value = item.dueDate || todayStr;
+                document.getElementById('lsx-form-qty').value = item.planQty;
+                document.getElementById('lsx-form-actual').value = item.actualQty;
+                document.getElementById('lsx-form-line').value = item.line;
+                document.getElementById('lsx-form-stage').value = item.stage;
+                document.getElementById('lsx-form-status').value = item.status;
+            } else {
+                document.getElementById('lsx-form-id').value = '';
+                document.getElementById('lsx-form-code').value = 'LSX-2026-' + Math.floor(100 + Math.random() * 900);
+                document.getElementById('lsx-form-start-date').value = todayStr;
+                document.getElementById('lsx-form-due-date').value = todayStr;
+            }
+            document.getElementById('modal-lsx').classList.remove('hidden');
+        }
+        function closeLsxModal() { document.getElementById('modal-lsx').classList.add('hidden'); }
+        function saveLsxForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('lsx-form-id').value, code = document.getElementById('lsx-form-code').value;
+            let productCode = document.getElementById('lsx-form-product').value;
+            if (productCode === '__NEW_PRODUCT__') productCode = document.getElementById('lsx-form-new-product').value.trim();
+            const startDate = document.getElementById('lsx-form-start-date').value;
+            const dueDate = document.getElementById('lsx-form-due-date').value;
+            const planQty = parseInt(document.getElementById('lsx-form-qty').value), actualQty = parseInt(document.getElementById('lsx-form-actual').value), line = document.getElementById('lsx-form-line').value, stage = document.getElementById('lsx-form-stage').value, status = document.getElementById('lsx-form-status').value;
+            const progress = planQty > 0 ? Math.round((actualQty / planQty) * 100) : 0;
+
+            if (id) { 
+                const item = state.lsxList.find(l => l.id === id); 
+                item.code = code; item.productCode = productCode; item.startDate = startDate; item.dueDate = dueDate; item.planQty = planQty; item.actualQty = actualQty; item.line = line; item.stage = stage; item.status = status; item.progress = progress; 
+            } else { 
+                state.lsxList.push({ id: 'lsx-' + Date.now(), code, productCode, startDate, dueDate, planQty, actualQty, line, stage, status, progress }); 
+            }
+            closeLsxModal(); saveState();
+        }
+
+        // MATERIAL MODAL
+        function openMaterialModal(id = null) {
+            document.getElementById('form-mat').reset();
+            const todayStr = new Date().toISOString().slice(0, 10);
+
+            if (id) {
+                const item = state.materials.find(m => m.id === id);
+                document.getElementById('mat-form-id').value = item.id;
+                document.getElementById('mat-form-code').value = item.code;
+                document.getElementById('mat-form-name').value = item.name;
+                document.getElementById('mat-form-plan-date').value = item.planDate || todayStr;
+                document.getElementById('mat-form-issue-date').value = item.issueDate || todayStr;
+                document.getElementById('mat-form-stock').value = item.currentStock;
+                document.getElementById('mat-form-safety').value = item.safetyStock;
+                document.getElementById('mat-form-unit').value = item.unit;
+            } else { 
+                document.getElementById('mat-form-id').value = ''; 
+                document.getElementById('mat-form-plan-date').value = todayStr;
+                document.getElementById('mat-form-issue-date').value = todayStr;
+            }
+            document.getElementById('modal-material').classList.remove('hidden');
+        }
+        function closeMaterialModal() { document.getElementById('modal-material').classList.add('hidden'); }
+        function saveMaterialForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('mat-form-id').value, code = document.getElementById('mat-form-code').value, name = document.getElementById('mat-form-name').value;
+            const planDate = document.getElementById('mat-form-plan-date').value;
+            const issueDate = document.getElementById('mat-form-issue-date').value;
+            const currentStock = parseFloat(document.getElementById('mat-form-stock').value), safetyStock = parseFloat(document.getElementById('mat-form-safety').value), unit = document.getElementById('mat-form-unit').value;
+            
+            if (id) { 
+                const item = state.materials.find(m => m.id === id); 
+                item.code = code; item.name = name; item.planDate = planDate; item.issueDate = issueDate; item.currentStock = currentStock; item.safetyStock = safetyStock; item.unit = unit; 
+            } else { 
+                state.materials.push({ id: 'mat-' + Date.now(), code, name, planDate, issueDate, currentStock, requiredQty: 0, safetyStock, unit }); 
+            }
+            closeMaterialModal(); saveState();
+        }
+
+        // QC MODAL
+        function openQcModal(id = null) {
+            document.getElementById('form-qc').reset();
+            if (id) {
+                const item = state.qcLogs.find(q => q.id === id);
+                document.getElementById('qc-form-id').value = item.id;
+                document.getElementById('qc-form-code').value = item.code;
+                document.getElementById('qc-form-type').value = item.type;
+                document.getElementById('qc-form-ref').value = item.ref;
+                document.getElementById('qc-form-inspector').value = item.inspector;
+                document.getElementById('qc-form-pass').value = item.passQty;
+                document.getElementById('qc-form-fail').value = item.failQty;
+            } else {
+                document.getElementById('qc-form-id').value = '';
+                document.getElementById('qc-form-code').value = 'QC-' + Math.floor(100 + Math.random() * 900);
+            }
+            document.getElementById('modal-qc').classList.remove('hidden');
+        }
+        function closeQcModal() { document.getElementById('modal-qc').classList.add('hidden'); }
+        function saveQcForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('qc-form-id').value, code = document.getElementById('qc-form-code').value, type = document.getElementById('qc-form-type').value, ref = document.getElementById('qc-form-ref').value, inspector = document.getElementById('qc-form-inspector').value, passQty = parseInt(document.getElementById('qc-form-pass').value), failQty = parseInt(document.getElementById('qc-form-fail').value);
+            const status = failQty === 0 ? "Đạt chuẩn" : "Có sản phẩm lỗi";
+            if (id) { const item = state.qcLogs.find(q => q.id === id); item.code = code; item.type = type; item.ref = ref; item.inspector = inspector; item.passQty = passQty; item.failQty = failQty; item.status = status; }
+            else { state.qcLogs.push({ id: 'qc-' + Date.now(), code, type, ref, inspector, passQty, failQty, status }); }
+            closeQcModal(); saveState();
+        }
+
+        // MACHINE MODAL
+        function openMachineModal(id = null) {
+            document.getElementById('form-machine').reset();
+            if (id) {
+                const item = state.machines.find(m => m.id === id);
+                document.getElementById('machine-form-id').value = item.id;
+                document.getElementById('machine-form-name').value = item.name;
+                document.getElementById('machine-form-load').value = item.load;
+                document.getElementById('machine-form-temp').value = item.temp;
+                document.getElementById('machine-form-status').value = item.status;
+                document.getElementById('machine-form-alert').value = item.alert ? "true" : "false";
+            } else { document.getElementById('machine-form-id').value = ''; }
+            document.getElementById('modal-machine').classList.remove('hidden');
+        }
+        function closeMachineModal() { document.getElementById('modal-machine').classList.add('hidden'); }
+        function saveMachineForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('machine-form-id').value, name = document.getElementById('machine-form-name').value, load = document.getElementById('machine-form-load').value, temp = document.getElementById('machine-form-temp').value, status = document.getElementById('machine-form-status').value, alertVal = document.getElementById('machine-form-alert').value === "true";
+            if (id) { const item = state.machines.find(m => m.id === id); item.name = name; item.load = load; item.temp = temp; item.status = status; item.alert = alertVal; }
+            else { state.machines.push({ id: 'mac-' + Date.now(), name, load, temp, status, alert: alertVal }); }
+            closeMachineModal(); saveState();
+        }
+
+        // WORKER MODAL
+        function openWorkerModal(id = null) {
+            document.getElementById('form-worker').reset();
+            if (id) {
+                const item = state.workers.find(w => w.id === id);
+                document.getElementById('worker-form-id').value = item.id;
+                document.getElementById('worker-form-name').value = item.name;
+                document.getElementById('worker-form-shift').value = item.shift;
+                document.getElementById('worker-form-line').value = item.line;
+                document.getElementById('worker-form-lsx').value = item.lsxCode;
+            } else { document.getElementById('worker-form-id').value = ''; }
+            document.getElementById('modal-worker').classList.remove('hidden');
+        }
+        function closeWorkerModal() { document.getElementById('modal-worker').classList.add('hidden'); }
+        function saveWorkerForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('worker-form-id').value, name = document.getElementById('worker-form-name').value, shift = document.getElementById('worker-form-shift').value, line = document.getElementById('worker-form-line').value, lsxCode = document.getElementById('worker-form-lsx').value;
+            if (id) { const item = state.workers.find(w => w.id === id); item.name = name; item.shift = shift; item.line = line; item.lsxCode = lsxCode; }
+            else { state.workers.push({ id: 'wrk-' + Date.now(), name, shift, line, lsxCode }); }
+            closeWorkerModal(); saveState();
+        }
+
+        // USER ADMIN MODAL
+        function openUserEditModal(id = null) {
+            document.getElementById('form-user').reset();
+            if (id) {
+                const item = usersList.find(u => u.id === id);
+                document.getElementById('user-modal-title').innerText = "Cập Nhật Thông Tin / Mật Khẩu Thành Viên";
+                document.getElementById('user-form-id').value = item.id;
+                document.getElementById('user-form-username').value = item.username;
+                document.getElementById('user-form-username').readOnly = true;
+                document.getElementById('user-form-fullname').value = item.fullname;
+                document.getElementById('user-form-password').value = item.password || '';
+                document.getElementById('user-form-role').value = item.role;
+                document.getElementById('user-form-status').value = item.status;
+            } else {
+                document.getElementById('user-modal-title').innerText = "Thêm Tài Khoản Thành Viên Mới";
+                document.getElementById('user-form-id').value = '';
+                document.getElementById('user-form-username').readOnly = false;
+                document.getElementById('user-form-password').value = '';
+            }
+            document.getElementById('modal-user').classList.remove('hidden');
+        }
+        function closeUserEditModal() { document.getElementById('modal-user').classList.add('hidden'); }
+        function saveUserForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('user-form-id').value;
+            const username = document.getElementById('user-form-username').value.trim();
+            const fullname = document.getElementById('user-form-fullname').value.trim();
+            const password = document.getElementById('user-form-password').value.trim();
+            const role = document.getElementById('user-form-role').value;
+            const status = document.getElementById('user-form-status').value;
+
+            if (id) {
+                const item = usersList.find(u => u.id === id);
+                if (item) {
+                    item.fullname = fullname;
+                    item.password = password;
+                    item.role = role;
+                    item.status = status;
+                }
+            } else {
+                if (usersList.some(u => u.username === username)) {
+                    alert("Tên đăng nhập này đã được sử dụng!");
+                    return;
+                }
+                usersList.push({ id: 'usr-' + Date.now(), username, password, fullname, role, status });
+            }
+            closeUserEditModal();
+            saveUsersState();
+        }
+
+        window.addEventListener('DOMContentLoaded', initState);
+    </script>
+</body>
+</html>
